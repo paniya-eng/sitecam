@@ -1,0 +1,44 @@
+name: Build Android APK
+
+# اجرای خودکار با هر push روی شاخه main + اجرای دستی از تب Actions
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: گرفتن کد از مخزن
+        uses: actions/checkout@v4
+
+      - name: نصب Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      # در مخزن ما پوشه android وجود ندارد؛ این دستور آن را می‌سازد
+      # و فایل‌های lib و pubspec.yaml را دست‌نخورده نگه می‌دارد
+      - name: ساخت پوشه‌های پلتفرم (Android)
+        run: flutter create . --project-name sitecam --platforms=android
+
+      - name: اضافه کردن مجوزهای دوربین و GPS
+        run: |
+          sed -i 's|<application|<uses-permission android:name="android.permission.CAMERA"/>\n        <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>\n        <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>\n        <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>\n        <uses-permission android:name="android.permission.RECORD_AUDIO"/>\n        <application|' android/app/src/main/AndroidManifest.xml
+          echo "=== Manifest بعد از اصلاح ==="
+          cat android/app/src/main/AndroidManifest.xml
+
+      - name: نصب پکیج‌ها
+        run: flutter pub get
+
+      - name: ساخت APK (نسخه release)
+        run: flutter build apk --release
+
+      - name: آپلود APK به عنوان خروجی قابل دانلود
+        uses: actions/upload-artifact@v4
+        with:
+          name: sitecam-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
